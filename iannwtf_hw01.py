@@ -94,7 +94,13 @@ class SigmoidActivation:
         self.x: np.ndarray = x
 
         return 1 / (1 + np.exp(-x))
+    
 
+""" 3.2 Sigmoid Backwards"""
+def sigmoid_backward(activation, error_signal):
+    sigmoid_derivative = activation * (1 - activation)
+    gradient = error_signal * sigmoid_derivative
+    return gradient
 
 
 ''' 2.3 Softmax activation function '''
@@ -137,6 +143,40 @@ class Single_MLP_Layer:
         assert isinstance(x, np.ndarray) 
         assert x.shape[1] == self.input_size
         return self.activation_function(self.x @ self.weights + self.bias)
+    
+
+    """ 3.3 MLP Weights Backwards """
+    def weights_backward(self, dL_dpre_activation, pre_activation):
+        """
+        - dL_dpre_activation: Gradient of the loss with respect to the pre-activation, array of shape (minibatchsize, num_units)
+        - pre_activation: Pre-activation values, array of shape (minibatchsize, num_units)
+        """
+        # computes gradient of the loss with respect to weights
+        dL_dW = np.dot(pre_activation.T, dL_dpre_activation)
+
+        # computes gradient of the loss with respect to the input
+        dL_dinput = np.dot(dL_dpre_activation, self.weights.T)
+
+        return dL_dW, dL_dinput
+    
+
+    """ 3.4 MLP Layer Backwards """
+    def backward(self, dL_dpre_activation, pre_activation, activation):
+
+        """
+        - dL_dpre_activation: Gradient of the loss with respect to the pre-activation, array of shape (minibatchsize, num_units)
+
+        Returns:
+        - dL_dinput: Gradient of the loss with respect to the input, array of shape (minibatchsize, input_size)
+        - dL_dW: Gradient of the loss with respect to weights, array of shape (input_size, num_units).
+        """
+        # computes the gradient of the activation function?
+        dL_dactivation = sigmoid_backward(activation, dL_dpre_activation)
+
+        # computes the gradients of the loss with respect to weights and input
+        dL_dW, dL_dinput = self.weights_backward(dL_dpre_activation, pre_activation)
+
+        return dL_dinput, dL_dW
 
 
 
@@ -175,8 +215,21 @@ class MLP:
             x = layer(x)
 
         return x
-        
-# Inbetween check a full pass:
+    
+
+    """ 3.5 Gradient Tape and MLP Backward """
+    def backward(self, predicted_probs, true_labels, activations, pre_activations):
+        """
+        Backward pass for the entire MLP
+        """
+
+        gradients = []
+
+        # idk how to go from here... :-( plus it is 23:45h lol
+
+
+
+# Inbetween check a full forward pass:
 minibatch_size = 32
 input_size = 64
 output_size = 10
@@ -192,5 +245,48 @@ mlp = MLP(layer_sizes, activation_functions)
 output = mlp(minibatch_data)
 
 # Print the output shape
-print("MLP Output Shape:", output.shape)
+#print("MLP Output Shape:", output.shape)
+
+
+
+""" 2.6 CCE Loss function, 3.1 CCE Backwards """ 
+
+
+class CategoricalCrossEntropyLoss:
+    def __call__(self, predicted_probs, true_labels):
+        """
+        - predicted_probs: Predicted probabilities, array of shape (minibatchsize, num_classes)
+        - true_labels: Truth values/labels (one-hot encoded), array of shape (minibatchsize, num_classes)
+
+        """
+        assert isinstance(predicted_probs, np.ndarray)
+        assert isinstance(true_labels, np.ndarray)
+        assert predicted_probs.shape == true_labels.shape
+
+        # clip predicted_probs to avoid log(0) issues
+        # clipping: if interval of [0, 1] is specified, values smaller than 0 become 0, and values larger than 1 become 1
+        # addition of epsilon ensures numerical stability in scenarios where probabilities are very close to zero which happens when taking the logarithm of very small probabilities
+        epsilon = 1e-15
+        predicted_probs = np.clip(predicted_probs, epsilon, 1 - epsilon)
+
+
+        # dividing the sum by predicted_probs.shape[0] is a normalization step to compute the mean loss per example in the minibatch
+        loss = -np.sum(true_labels * np.log(predicted_probs)) / predicted_probs.shape[0] # predicted_probs.shape[0] is nr of examples in the minibatch
+
+        return loss
+    
+
+    def backward(self, predicted_probs, true_labels):
+
+        assert predicted_probs.shape == true_labels.shape
+        
+        # Compute the gradient of the loss with respect to predicted_probs
+        gradient = (predicted_probs - true_labels) / predicted_probs.shape[0]
+
+        return gradient
+ 
+
+
+
+
 
